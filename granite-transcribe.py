@@ -37,6 +37,7 @@ class GraniteTranscriber:
         # Performance/VAD state
         self.background_rms = 0.005 # Initial estimate
         self.vad_threshold = 0.01
+        self.latest_text = ""
         
         if not use_groq:
             print(f"Loading model {model_name}...")
@@ -157,15 +158,24 @@ class GraniteTranscriber:
             
         return output_text
 
-    def draw_meter(self, rms):
+    def draw_meter(self, rms, text=""):
         meter_len = 20
         level = int(min(np.sqrt(rms) * 3, 1.0) * meter_len)
         bar = "█" * level + "░" * (meter_len - level)
         color = "\033[92m" # Green
         if level > meter_len * 0.5: color = "\033[93m" # Yellow
         if level > meter_len * 0.8: color = "\033[91m" # Red
-        # Restored threshold display as it's the 'noise level detector'
-        meter = f"{color}[{bar}] {rms:.4f} (Noise Floor: {self.background_rms:.4f}, Thresh: {self.vad_threshold:.4f})\033[0m"
+        
+        # Format the meter line
+        meter = f"{color}[{bar}] {rms:.4f}\033[0m"
+        
+        # Add real-time transcription if available
+        if text:
+            # Truncate text if it's too long for the same line
+            max_text_len = 80 
+            display_text = (text[:max_text_len] + '..') if len(text) > max_text_len else text
+            meter += f" | \033[94m{display_text}\033[0m"
+            
         return f"\r{meter}   "
 
     def audio_callback(self, indata, frames, time, status):
@@ -175,7 +185,7 @@ class GraniteTranscriber:
 
     def start_live(self, language=None, output_file=None, audio_output=None):
         print(f"Starting indefinite transcription (Language: {language if language else 'auto'}).")
-        print("Live updates will appear every 5 seconds. Press Ctrl+C to stop and save.")
+        print("Real-time updates will appear beside the meter. Press Ctrl+C to stop.")
         
         if output_file:
             with open(output_file, "a") as f:
@@ -186,7 +196,7 @@ class GraniteTranscriber:
         buffer = []
         samples_collected = 0
         last_update_time = time.time()
-        UPDATE_INTERVAL = 5.0  # More frequent live updates
+        UPDATE_INTERVAL = 3.0  # Faster real-time updates
         speech_detected = False
 
         try:
@@ -205,13 +215,8 @@ class GraniteTranscriber:
                         self.background_rms = (1 - VAD_ADAPTIVE_ALPHA) * self.background_rms + VAD_ADAPTIVE_ALPHA * rms
                         self.vad_threshold = max(self.background_rms * 2, 0.005)
 
-                        # Draw the meter (Noise Level Detector)
-                        print(self.draw_meter(rms), end="", flush=True)
-
+                        # Logic for 'Speech detected' pulses (internal state)
                         if rms > self.vad_threshold:
-                            if not speech_detected:
-                                sys.stdout.write("\nSpeech detected...\n")
-                                sys.stdout.flush()
                             speech_detected = True
                         else:
                             speech_detected = False
@@ -231,14 +236,17 @@ class GraniteTranscriber:
                                     window_audio = full_audio
                                     prefix = ""
                                     
-                                text = self.transcribe(window_audio, language)
-                                if text:
-                                    # Print the "so far" result on a new line
-                                    print(f"[{time.strftime('%H:%M:%S')}] {prefix}{text}", flush=True)
+                                transcribed = self.transcribe(window_audio, language)
+                                if transcribed:
+                                    self.latest_text = f"{prefix}{transcribed}"
                                 last_update_time = time.time()
 
+                        # Draw the unified meter and text line
+                        sys.stdout.write(self.draw_meter(rms, self.latest_text))
+                        sys.stdout.flush()
+
                         if rms > 0.5:
-                            print("\nWARNING: Audio level is very high!")
+                            sys.stdout.write("\nWARNING: Audio level is very high!\n")
 
                         buffer = []
                         samples_collected = 0
