@@ -166,17 +166,17 @@ class GraniteTranscriber:
         if level > meter_len * 0.5: color = "\033[93m" # Yellow
         if level > meter_len * 0.8: color = "\033[91m" # Red
         
-        # Format the meter line
-        meter = f"{color}[{bar}] {rms:.4f}\033[0m"
+        # Format the meter line with full noise detector info
+        meter = f"{color}[{bar}] {rms:.4f} (Floor: {self.background_rms:.4f}, Thr: {self.vad_threshold:.4f})\033[0m"
         
         # Add real-time transcription if available
         if text:
-            # Truncate text if it's too long for the same line
-            max_text_len = 80 
+            # Truncate text if it's too long to prevent wrapping and meter removal
+            max_text_len = 60 
             display_text = (text[:max_text_len] + '..') if len(text) > max_text_len else text
             meter += f" | \033[94m{display_text}\033[0m"
             
-        return f"\r{meter}   "
+        return f"\r{meter}           "
 
     def audio_callback(self, indata, frames, time, status):
         if status:
