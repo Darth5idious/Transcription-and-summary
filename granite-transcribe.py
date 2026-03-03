@@ -219,11 +219,22 @@ class GraniteTranscriber:
                         # Periodic cumulative update
                         if time.time() - last_update_time > UPDATE_INTERVAL:
                             if self.all_audio:
+                                # Optimization: Only transcribe the last 30 seconds for the live update
+                                WINDOW_SIZE = 30 # Seconds
+                                window_samples = int(WINDOW_SIZE * SAMPLE_RATE)
+                                
                                 full_audio = np.concatenate(self.all_audio)
-                                text = self.transcribe(full_audio, language)
+                                if len(full_audio) > window_samples:
+                                    window_audio = full_audio[-window_samples:]
+                                    prefix = "... "
+                                else:
+                                    window_audio = full_audio
+                                    prefix = ""
+                                    
+                                text = self.transcribe(window_audio, language)
                                 if text:
-                                    # Print the "so far" result on a new line to keep CLI clean but alive
-                                    print(f"[{time.strftime('%H:%M:%S')}] {text} ...", flush=True)
+                                    # Print the "so far" result on a new line
+                                    print(f"[{time.strftime('%H:%M:%S')}] {prefix}{text}", flush=True)
                                 last_update_time = time.time()
 
                         if rms > 0.5:
