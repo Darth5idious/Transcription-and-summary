@@ -1,0 +1,12 @@
+node_modules/
+venv/
+__pycache__/
+*.wav
+*.mp3
+transcription_*.txt
+.DS_Store
+.env
+pkg/
+dist/
+.svelte-kit/
+build/
