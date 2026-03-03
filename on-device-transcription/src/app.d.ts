@@ -8,9 +8,9 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
-	declare module "*.wgsl" {
-		const content: string;
-		export default content;
+
+	interface Window {
+		electronAPI: import('$lib/types').ElectronAPI;
 	}
 }
 
