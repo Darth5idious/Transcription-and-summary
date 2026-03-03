@@ -7,13 +7,15 @@ TEMP_DIR="/tmp/transcribe_chunks"
 API_URL="https://api.groq.com/openai/v1/audio/transcriptions"
 MODEL="whisper-large-v3-turbo"
 # Defaults
-USE_GRANITE=false
+USE_GRANITE=true
+USE_GROQ=false
 LANGUAGE=""
 
 # Simple flag parsing
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
-        --granite) USE_GRANITE=true ;;
+        --granite) USE_GRANITE=true; USE_GROQ=false ;;
+        --groq) USE_GROQ=true; USE_GRANITE=false ;;
         --no-vad-transcribe) NO_VAD_TRANSCRIBE=true ;;
         de|en|fr|es|it|pt|ja|zh) LANGUAGE="$1" ;;
     esac
@@ -53,9 +55,9 @@ DEFAULT_OUT_FILE="transcription_$TIMESTAMP.txt"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FULL_OUT_PATH="$DIR/$DEFAULT_OUT_FILE"
 
-# Handle API Key for Groq
+# Handle API Key only for Groq
 GROQ_ARG=""
-if [ "$USE_GRANITE" = false ]; then
+if [ "$USE_GROQ" = true ]; then
     if [ ! -f "$GROQ_KEY_FILE" ]; then
         echo -e "${RED}Error: Groq key file not found at $GROQ_KEY_FILE${NC}"
         exit 1

@@ -59,6 +59,15 @@ Important: This application requires access to the WebGPU API. If you're using i
     npm run build:electron
 ```
 
+## High-Performance Local Backend (IBM Granite)
+
+For faster, more robust on-device transcription, this repository includes a CLI-based backend powered by **IBM Granite Speech 2B**.
+
+- **Live Transcription**: Run `./live-transcribe.sh` to start a persistent session.
+- **File Workflow**: Run `./workflow.sh <audio_file>` to transcribe and summarize local files.
+
+These tools run entirely on your CPU using PyTorch and provide better accuracy and persistence than the browser-based implementation.
+
 ## Resources
 
 - [OpenAI Whisper](https://openai.com/index/whisper/)
