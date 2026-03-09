@@ -13,7 +13,10 @@
 	// Services
 	import { Microphone } from '$lib/Microphone';
 	import { transcribeAudioChunk, transcribeFullRecording, float32ToWavBlob } from '$lib/services/groqTranscription';
-	import { streamSummarizeTranscript } from '$lib/services/groqSummarization';
+	import { streamSummarizeTranscript, streamTranslateToEnglish } from '$lib/services/groqSummarization';
+	import { diarizeAudio, isDiarizeServerAvailable } from '$lib/services/diarizationService';
+	import { downloadMp3 } from '$lib/utils/download';
+	import type { DiarizedSegment } from '$lib/types';
 
 	// Stores
 	import { config } from '$lib/stores/config';
@@ -28,9 +31,13 @@
 	let isRecording = false;
 	let isTranscribing = false;
 	let isSummarizing = false;
+	let isTranslating = false;
+	let isDiarizing = false;
 	let settingsRef: Settings;
 	let transcript = '';
 	let summary = '';
+	let translation = ''; // English translation (German mode only)
+	let segments: DiarizedSegment[] = [];
 	let elapsedTime = 0;
 	let audioLevel = 0;
 	let blobURL = '';
@@ -44,6 +51,12 @@
 	let lastTranscribedLength = 0;
 	let currentSessionId: string | null = null;
 	let isViewingSaved = false;
+
+	// Derived filename base (used for downloads)
+	$: fileBase = (() => {
+		const title = $activeSession?.title || generateTitle(transcript) || 'recording';
+		return title.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase().slice(0, 40);
+	})();
 
 	onMount(async () => {
 		await loadSessions();
@@ -62,6 +75,8 @@
 	$: if ($activeSession && !isRecording) {
 		transcript = $activeSession.transcript;
 		summary = $activeSession.summary;
+		segments = $activeSession.segments ?? [];
+		translation = $activeSession.translation ?? '';
 		isViewingSaved = true;
 		if ($activeSession.hasAudio) {
 			loadSessionAudio($activeSession.id);
@@ -104,6 +119,8 @@
 		isViewingSaved = false;
 		transcript = '';
 		summary = '';
+		translation = '';
+		segments = [];
 		blobURL = '';
 		showSoundWave = false;
 		elapsedTime = 0;
@@ -213,7 +230,7 @@
 			}
 		}
 
-		// Create WAV blob for playback
+		// Create WAV blob for playback + diarization
 		if (accumulatedAudio.length > 0) {
 			const wavBlob = float32ToWavBlob(accumulatedAudio, 16000);
 			blobURL = URL.createObjectURL(wavBlob);
@@ -224,9 +241,23 @@
 				const buffer = await wavBlob.arrayBuffer();
 				await window.electronAPI.saveAudio({ sessionId: currentSessionId, buffer });
 			}
+
+			// Try speaker diarization (requires local Python server)
+			const serverUp = await isDiarizeServerAvailable();
+			if (serverUp && $config.groqApiKey) {
+				isDiarizing = true;
+				try {
+					segments = await diarizeAudio(wavBlob, $config.groqApiKey, $config.language);
+				} catch (e) {
+					console.warn('Diarization failed, using plain transcript:', e);
+					segments = [];
+				} finally {
+					isDiarizing = false;
+				}
+			}
 		}
 
-		// Generate summary (streaming)
+		// Generate summary (streaming) — always in recorded language
 		if (transcript) {
 			isSummarizing = true;
 			summary = '';
@@ -246,6 +277,25 @@
 			}
 		}
 
+		// Generate English translation (streaming) — German mode only
+		if (transcript && $config.language === 'de') {
+			isTranslating = true;
+			translation = '';
+			try {
+				for await (const chunk of streamTranslateToEnglish(
+					transcript,
+					$config.groqApiKey,
+					$config.summarizationModel
+				)) {
+					translation += chunk;
+				}
+			} catch (e) {
+				console.error('Translation error:', e);
+			} finally {
+				isTranslating = false;
+			}
+		}
+
 		// Save session
 		if (currentSessionId) {
 			const session = {
@@ -255,6 +305,8 @@
 				duration: elapsedTime,
 				transcript,
 				summary,
+				segments: segments.length > 0 ? segments : undefined,
+				translation: translation || undefined,
 				hasAudio: accumulatedAudio.length > 0,
 			};
 			await saveSession(session);
@@ -268,6 +320,8 @@
 		isViewingSaved = false;
 		transcript = '';
 		summary = '';
+		translation = '';
+		segments = [];
 		blobURL = '';
 		showSoundWave = false;
 		elapsedTime = 0;
@@ -294,11 +348,28 @@
 					<h2 class="text-lg font-semibold text-gray-800">New Recording</h2>
 				{/if}
 			</div>
-			<button
-				on:click={() => settingsRef?.open()}
-				class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-				title="Settings"
-			>
+			<div class="flex items-center space-x-2">
+				<!-- Language toggle button -->
+				<button
+					on:click={() => config.update((c) => ({ ...c, language: c.language === 'de' ? 'en' : 'de' }))}
+					disabled={isRecording}
+					title="Toggle language"
+					class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all
+						{$config.language === 'de'
+							? 'bg-black text-white border-black hover:bg-gray-800'
+							: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}
+						disabled:opacity-40 disabled:cursor-not-allowed"
+				>
+					<span>{$config.language === 'de' ? '🇩🇪' : '🇬🇧'}</span>
+					<span>{$config.language === 'de' ? 'DE' : 'EN'}</span>
+				</button>
+
+				<!-- Settings button -->
+				<button
+					on:click={() => settingsRef?.open()}
+					class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+					title="Settings"
+				>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path
 						stroke-linecap="round"
@@ -314,6 +385,7 @@
 					/>
 				</svg>
 			</button>
+			</div>
 		</div>
 
 		<!-- Recording controls -->
@@ -329,22 +401,58 @@
 			</div>
 		{/if}
 
-		<!-- Transcript + Summary side by side -->
-		<div class="flex-1 flex space-x-4 min-h-0">
+		<!-- Transcript row (top) -->
+		<div class="flex space-x-4 min-h-0" style="flex: 1 1 0; min-height: 0;">
+			<!-- German original transcript (always shown) -->
 			<div class="flex-1 min-w-0">
-				<TranscriptPanel {transcript} isLive={isRecording} />
+				<TranscriptPanel
+					{transcript}
+					{segments}
+					isLive={isRecording || isDiarizing}
+					label={$config.language === 'de' ? '🇩🇪 Deutsch' : undefined}
+					downloadFilename="{fileBase}_transcript.txt"
+				/>
 			</div>
-			<div class="flex-1 min-w-0">
-				<SummaryPanel {summary} isGenerating={isSummarizing} />
-			</div>
+
+			<!-- English translation (German mode only) -->
+			{#if $config.language === 'de'}
+				<div class="flex-1 min-w-0">
+					<TranscriptPanel
+						transcript={translation}
+						segments={[]}
+						isLive={isTranslating}
+						label="🇬🇧 English"
+						downloadFilename="{fileBase}_translation.txt"
+					/>
+				</div>
+			{/if}
 		</div>
 
-		<!-- Audio playback -->
+		<!-- Audio playback + MP3 download -->
 		{#if blobURL && showSoundWave}
-			<div class="shrink-0">
-				<SoundWave {blobURL} />
+			<div class="shrink-0 flex items-center space-x-2">
+				<div class="flex-1 min-w-0">
+					<SoundWave {blobURL} />
+				</div>
+				<button
+					on:click={() => downloadMp3(accumulatedAudio, `${fileBase}.mp3`, blobURL)}
+					title="Download MP3"
+					class="shrink-0 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-gray-200
+						bg-white text-gray-500 hover:text-gray-700 hover:border-gray-300 text-xs font-medium transition-all"
+				>
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+							d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+					</svg>
+					<span>MP3</span>
+				</button>
 			</div>
 		{/if}
+
+		<!-- Summary (always at bottom) -->
+		<div class="shrink-0" style="height: 220px; min-height: 180px;">
+			<SummaryPanel {summary} isGenerating={isSummarizing} downloadFilename="{fileBase}_summary.md" />
+		</div>
 	</div>
 </div>
 

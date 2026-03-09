@@ -1,3 +1,10 @@
+export interface DiarizedSegment {
+	speaker: string; // "Speaker 1", "Speaker 2", …
+	text: string;
+	start: number;
+	end: number;
+}
+
 export interface Session {
 	id: string;
 	title: string;
@@ -6,6 +13,8 @@ export interface Session {
 	transcript: string;
 	summary: string;
 	hasAudio: boolean;
+	segments?: DiarizedSegment[];
+	translation?: string; // English translation when recorded in another language
 }
 
 export interface ElectronAPI {

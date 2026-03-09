@@ -10,3 +10,6 @@ pkg/
 dist/
 .svelte-kit/
 build/
+
+pretrained_models/
+speechbrain/
