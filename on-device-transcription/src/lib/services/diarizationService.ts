@@ -5,12 +5,16 @@ import type { DiarizedSegment } from '$lib/types';
 export async function diarizeAudio(
     wavBlob: Blob,
     apiKey: string,
-    language: string = 'en'
+    language: string = 'en',
+    words?: any[]
 ): Promise<DiarizedSegment[]> {
     const form = new FormData();
     form.append('file', wavBlob, 'recording.wav');
     form.append('api_key', apiKey);
     form.append('language', language);
+    if (words && words.length > 0) {
+        form.append('words', JSON.stringify(words));
+    }
 
     const response = await fetch(DIARIZE_URL, {
         method: 'POST',

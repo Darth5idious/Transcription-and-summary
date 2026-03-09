@@ -41,17 +41,30 @@ export function float32ToWavBlob(audioData: Float32Array, sampleRate: number): B
 	return new Blob([buffer], { type: 'audio/wav' });
 }
 
+export interface TranscriptionWord {
+	word: string;
+	start: number;
+	end: number;
+}
+
+export interface TranscriptionResult {
+	text: string;
+	words: TranscriptionWord[];
+}
+
 export async function transcribeAudioChunk(
 	audioData: Float32Array,
 	apiKey: string,
 	model: string = DEFAULT_MODEL,
 	language: string = 'en'
-): Promise<string> {
+): Promise<TranscriptionResult> {
 	const wavBlob = float32ToWavBlob(audioData, 16000);
 
 	const form = new FormData();
 	form.append('file', wavBlob, 'recording.wav');
 	form.append('model', model);
+	form.append('response_format', 'verbose_json');
+	form.append('timestamp_granularities[]', 'word');
 	if (language) {
 		form.append('language', language);
 	}
@@ -68,7 +81,10 @@ export async function transcribeAudioChunk(
 	}
 
 	const payload = await response.json();
-	return payload.text?.trim() ?? '';
+	return {
+		text: payload.text?.trim() ?? '',
+		words: payload.words || []
+	};
 }
 
 export async function transcribeFullRecording(
@@ -76,7 +92,7 @@ export async function transcribeFullRecording(
 	apiKey: string,
 	model: string = DEFAULT_MODEL,
 	language: string = 'en'
-): Promise<string> {
+): Promise<TranscriptionResult> {
 	// Groq has a 25MB file limit. At 16kHz mono 16-bit, 10 minutes ~ 19MB.
 	const MAX_DURATION_SECONDS = 600;
 	const samplesPerChunk = MAX_DURATION_SECONDS * 16000;
@@ -86,11 +102,29 @@ export async function transcribeFullRecording(
 	}
 
 	const results: string[] = [];
+	const allWords: TranscriptionWord[] = [];
+	let timeOffset = 0;
+
 	for (let i = 0; i < audioData.length; i += samplesPerChunk) {
 		const chunk = audioData.slice(i, i + samplesPerChunk);
-		const text = await transcribeAudioChunk(chunk, apiKey, model, language);
-		if (text) results.push(text);
+		const { text, words } = await transcribeAudioChunk(chunk, apiKey, model, language);
+
+		if (text) Object.assign(results, [...results, text]);
+
+		// Shift timestamps for the chunk
+		for (const w of words) {
+			allWords.push({
+				word: w.word,
+				start: w.start + timeOffset,
+				end: w.end + timeOffset
+			});
+		}
+
+		timeOffset += MAX_DURATION_SECONDS;
 	}
 
-	return results.join(' ');
+	return {
+		text: results.join(' '),
+		words: allWords
+	};
 }

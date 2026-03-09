@@ -263,18 +263,25 @@ async def diarize(
     file: UploadFile = File(...),
     api_key: str = Form(...),
     language: str = Form(default="en"),
+    words: str = Form(default=None),
 ):
     wav_bytes = await file.read()
 
-    # 1. Transcribe with Groq Whisper (word timestamps)
-    log.info(f"Transcribing {len(wav_bytes)//1024} KB of audio…")
-    try:
-        whisper_data = await whisper_with_words(wav_bytes, api_key, language)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Groq Whisper error: {e}")
+    if words:
+        import json
+        log.info("Using provided word segments, skipping Whisper API")
+        raw_words = json.loads(words)
+        word_segments = [{"text": w.get("word", "").strip(), "start": w.get("start", 0.0), "end": w.get("end", 0.0)} for w in raw_words if w.get("word")]
+    else:
+        # 1. Transcribe with Groq Whisper (word timestamps)
+        log.info(f"Transcribing {len(wav_bytes)//1024} KB of audio…")
+        try:
+            whisper_data = await whisper_with_words(wav_bytes, api_key, language)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Groq Whisper error: {e}")
 
-    word_segments = extract_segments_from_whisper(whisper_data)
-    log.info(f"Got {len(word_segments)} word segments from Whisper")
+        word_segments = extract_segments_from_whisper(whisper_data)
+        log.info(f"Got {len(word_segments)} word segments from Whisper")
 
     if not word_segments:
         return {"segments": []}

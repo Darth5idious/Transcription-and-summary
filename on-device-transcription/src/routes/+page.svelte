@@ -174,15 +174,15 @@
 						? accumulatedAudio.slice(-WINDOW_SAMPLES)
 						: accumulatedAudio;
 
-				const text = await transcribeAudioChunk(
+				const result = await transcribeAudioChunk(
 					audioToTranscribe,
 					$config.groqApiKey,
 					$config.transcriptionModel,
 					$config.language
 				);
 
-				if (text) {
-					transcript = text;
+				if (result.text) {
+					transcript = result.text;
 				}
 			} catch (e) {
 				console.error('Transcription error:', e);
@@ -212,16 +212,20 @@
 		}
 
 		// Final full transcription
+		let finalWords = [];
 		if (accumulatedAudio.length > 0) {
 			isTranscribing = true;
 			try {
-				const fullText = await transcribeFullRecording(
+				const result = await transcribeFullRecording(
 					accumulatedAudio,
 					$config.groqApiKey,
 					$config.transcriptionModel,
 					$config.language
 				);
-				if (fullText) transcript = fullText;
+				if (result.text) {
+					transcript = result.text;
+					finalWords = result.words || [];
+				}
 			} catch (e) {
 				console.error('Final transcription error:', e);
 				toast.error('Final transcription failed.');
@@ -247,7 +251,7 @@
 			if (serverUp && $config.groqApiKey) {
 				isDiarizing = true;
 				try {
-					segments = await diarizeAudio(wavBlob, $config.groqApiKey, $config.language);
+					segments = await diarizeAudio(wavBlob, $config.groqApiKey, $config.language, finalWords);
 				} catch (e) {
 					console.warn('Diarization failed, using plain transcript:', e);
 					segments = [];
