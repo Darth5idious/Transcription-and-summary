@@ -81,9 +81,10 @@ export async function transcribeAudioChunk(
 	}
 
 	const payload = await response.json();
+	const wordsList = payload.words || [];
 	return {
-		text: payload.text?.trim() ?? '',
-		words: payload.words || []
+		text: wordsList.length > 0 ? wordsList.map((w: any) => w.word).join('') : (payload.text?.trim() ?? ''),
+		words: wordsList
 	};
 }
 
@@ -106,10 +107,9 @@ export async function transcribeFullRecording(
 	let timeOffset = 0;
 
 	for (let i = 0; i < audioData.length; i += samplesPerChunk) {
-		const chunk = audioData.slice(i, i + samplesPerChunk);
 		const { text, words } = await transcribeAudioChunk(chunk, apiKey, model, language);
 
-		if (text) Object.assign(results, [...results, text]);
+		if (text) results.push(text);
 
 		// Shift timestamps for the chunk
 		for (const w of words) {
@@ -124,7 +124,7 @@ export async function transcribeFullRecording(
 	}
 
 	return {
-		text: results.join(' '),
+		text: allWords.length > 0 ? allWords.map((w: any) => w.word).join('') : results.join(' '),
 		words: allWords
 	};
 }

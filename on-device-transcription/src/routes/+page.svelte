@@ -51,6 +51,7 @@
 	let lastTranscribedLength = 0;
 	let currentSessionId: string | null = null;
 	let isViewingSaved = false;
+	let isPaused = false;
 
 	// Derived filename base (used for downloads)
 	$: fileBase = (() => {
@@ -116,6 +117,7 @@
 		}
 
 		isRecording = true;
+		isPaused = false;
 		isViewingSaved = false;
 		transcript = '';
 		summary = '';
@@ -132,11 +134,15 @@
 
 		// Elapsed time counter
 		recordingTimer = setInterval(() => {
-			elapsedTime += 1;
+			if (!isPaused) elapsedTime += 1;
 		}, 1000);
 
 		// Start microphone
 		mic = new Microphone((chunk) => {
+			if (isPaused) {
+				audioLevel = 0;
+				return;
+			}
 			const newAudio = new Float32Array(accumulatedAudio.length + chunk.length);
 			newAudio.set(accumulatedAudio);
 			newAudio.set(chunk, accumulatedAudio.length);
@@ -199,6 +205,7 @@
 			mic = null;
 		}
 		isRecording = false;
+		isPaused = false;
 		audioLevel = 0;
 
 		// Stop timers
@@ -397,10 +404,12 @@
 			<div class="shrink-0">
 				<RecordingControls
 					{isRecording}
+					{isPaused}
 					{elapsedTime}
 					{audioLevel}
 					on:start={startRecording}
 					on:stop={stopRecording}
+					on:togglePause={() => (isPaused = !isPaused)}
 				/>
 			</div>
 		{/if}

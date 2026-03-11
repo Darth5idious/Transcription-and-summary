@@ -107,10 +107,10 @@ def extract_segments_from_whisper(data: dict) -> list[dict]:
     # Fall back to segment-level if word timestamps unavailable
     if not words:
         segments = data.get("segments") or []
-        return [{"text": s.get("text", "").strip(),
+        return [{"text": s.get("text", ""),
                  "start": s.get("start", 0.0),
                  "end": s.get("end", 0.0)} for s in segments if s.get("text")]
-    return [{"text": w.get("word", "").strip(),
+    return [{"text": w.get("word", ""),
              "start": w.get("start", 0.0),
              "end": w.get("end", 0.0)} for w in words if w.get("word")]
 
@@ -172,18 +172,18 @@ def cluster_embeddings(embeddings_with_words: list, n_speakers: int = None) -> l
     from sklearn.cluster import AgglomerativeClustering
     from sklearn.preprocessing import normalize
 
-    valid = [(words, emb) for (words, emb) in embeddings_with_words if emb is not None]
-    if not valid:
+    valid_idx = [i for i, (_, emb) in enumerate(embeddings_with_words) if emb is not None]
+    if not valid_idx:
         # No embeddings, assign all to Speaker 1
         all_words = [w for (words, _) in embeddings_with_words for w in words]
         return fallback_single_speaker(all_words)
 
-    emb_matrix = np.stack([emb for (_, emb) in valid])
+    emb_matrix = np.stack([embeddings_with_words[i][1] for i in valid_idx])
     emb_matrix = normalize(emb_matrix)
 
     # Auto-detect number of speakers (2–6) using distance threshold
     if n_speakers is None:
-        n_speakers = min(len(valid), 6)
+        n_speakers = min(len(valid_idx), 6)
         clustering = AgglomerativeClustering(
             n_clusters=None,
             distance_threshold=0.65,
@@ -192,7 +192,7 @@ def cluster_embeddings(embeddings_with_words: list, n_speakers: int = None) -> l
         )
     else:
         clustering = AgglomerativeClustering(
-            n_clusters=min(n_speakers, len(valid)),
+            n_clusters=min(n_speakers, len(valid_idx)),
             metric="cosine",
             linkage="average",
         )
@@ -209,12 +209,18 @@ def cluster_embeddings(embeddings_with_words: list, n_speakers: int = None) -> l
             speaker_counter += 1
         named_labels.append(seen[label])
 
-    # Build word-level speaker assignment
+    # Assign speakers to ALL windows, handling None embeddings by carrying over the last speaker
     word_speaker = []
-    for i, (words, _) in enumerate(valid):
-        speaker = named_labels[i]
+    valid_ptr = 0
+    current_speaker = named_labels[0] if named_labels else "Person 1"
+    
+    for words, emb in embeddings_with_words:
+        if emb is not None:
+            current_speaker = named_labels[valid_ptr]
+            valid_ptr += 1
+            
         for w in words:
-            word_speaker.append({"speaker": speaker, "text": w["text"],
+            word_speaker.append({"speaker": current_speaker, "text": w["text"],
                                   "start": w["start"], "end": w["end"]})
 
     return merge_consecutive_speakers(word_speaker)
@@ -224,7 +230,7 @@ def fallback_single_speaker(words: list[dict]) -> list[dict]:
     if not words:
         return []
     return [{"speaker": "Speaker 1",
-             "text": " ".join(w["text"] for w in words),
+             "text": "".join(w["text"] for w in words),
              "start": words[0]["start"],
              "end": words[-1]["end"]}]
 
@@ -239,7 +245,7 @@ def merge_consecutive_speakers(word_speaker: list[dict]) -> list[dict]:
 
     for w in word_speaker[1:]:
         if w["speaker"] == current["speaker"]:
-            current["text"] += " " + w["text"]
+            current["text"] += w["text"]
             current["end"] = w["end"]
         else:
             segments.append(current)
@@ -271,7 +277,7 @@ async def diarize(
         import json
         log.info("Using provided word segments, skipping Whisper API")
         raw_words = json.loads(words)
-        word_segments = [{"text": w.get("word", "").strip(), "start": w.get("start", 0.0), "end": w.get("end", 0.0)} for w in raw_words if w.get("word")]
+        word_segments = [{"text": w.get("word", ""), "start": w.get("start", 0.0), "end": w.get("end", 0.0)} for w in raw_words if w.get("word")]
     else:
         # 1. Transcribe with Groq Whisper (word timestamps)
         log.info(f"Transcribing {len(wav_bytes)//1024} KB of audio…")
@@ -289,7 +295,7 @@ async def diarize(
     # If audio is very short (< 3s), skip diarization
     duration = word_segments[-1]["end"] if word_segments else 0
     if duration < 3.0:
-        text = " ".join(w["text"] for w in word_segments)
+        text = "".join(w["text"] for w in word_segments)
         return {"segments": [{"speaker": "Speaker 1", "text": text,
                                "start": word_segments[0]["start"],
                                "end": word_segments[-1]["end"]}]}

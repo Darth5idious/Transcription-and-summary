@@ -2,6 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let isRecording: boolean = false;
+	export let isPaused: boolean = false;
 	export let elapsedTime: number = 0;
 	export let audioLevel: number = 0;
 
@@ -17,7 +18,7 @@
 		return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 	}
 
-	$: meterWidth = Math.min(Math.sqrt(audioLevel) * 5, 1.0) * 100;
+	$: meterWidth = (isPaused || !isRecording) ? 0 : Math.min(Math.sqrt(audioLevel) * 5, 1.0) * 100;
 	$: meterColor =
 		meterWidth > 80 ? 'bg-red-500' : meterWidth > 50 ? 'bg-yellow-500' : 'bg-green-500';
 </script>
@@ -38,6 +39,28 @@
 			{/if}
 		</button>
 
+		{#if isRecording}
+			<button
+				on:click={() => dispatch('togglePause')}
+				class="w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm
+					{isPaused
+					? 'bg-yellow-500 hover:bg-yellow-600 shadow-yellow-200'
+					: 'bg-gray-200 hover:bg-gray-300 shadow-gray-200'}"
+				title={isPaused ? "Resume Recording" : "Pause Recording"}
+			>
+				{#if isPaused}
+					<svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+						<path d="M8 5v14l11-7z" />
+					</svg>
+				{:else}
+					<div class="flex space-x-1.5">
+						<div class="w-2 h-5 bg-gray-600 rounded-sm" />
+						<div class="w-2 h-5 bg-gray-600 rounded-sm" />
+					</div>
+				{/if}
+			</button>
+		{/if}
+
 		<div class="flex flex-col space-y-1.5 flex-1">
 			<div class="flex items-center space-x-3">
 				<span class="font-mono text-xl text-gray-700 w-24 tabular-nums">
@@ -45,10 +68,10 @@
 				</span>
 				{#if isRecording}
 					<span class="flex items-center space-x-1.5">
-						<span class="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-						<span class="text-xs text-red-500 font-medium uppercase tracking-wide"
-							>Recording</span
-						>
+						<span class="w-2 h-2 rounded-full {isPaused ? 'bg-yellow-500' : 'bg-red-500'} {isPaused ? '' : 'animate-pulse'}" />
+						<span class="{isPaused ? 'text-yellow-600' : 'text-red-500'} text-xs font-medium uppercase tracking-wide">
+							{isPaused ? 'Paused' : 'Recording'}
+						</span>
 					</span>
 				{:else if elapsedTime === 0}
 					<span class="text-xs text-gray-400">Press to start recording</span>
