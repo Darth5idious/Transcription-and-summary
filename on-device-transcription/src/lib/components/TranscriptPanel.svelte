@@ -43,9 +43,11 @@
 	$: hasSegments = segments && segments.length > 0;
 
 	$: if ((transcript || hasSegments) && scrollContainer) {
-		requestAnimationFrame(() => {
-			scrollContainer.scrollTop = scrollContainer.scrollHeight;
-		});
+		if (isLive) {
+			requestAnimationFrame(() => {
+				scrollContainer.scrollTop = scrollContainer.scrollHeight;
+			});
+		}
 	}
 </script>
 

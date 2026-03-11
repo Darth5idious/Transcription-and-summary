@@ -181,12 +181,12 @@ def cluster_embeddings(embeddings_with_words: list, n_speakers: int = None) -> l
     emb_matrix = np.stack([embeddings_with_words[i][1] for i in valid_idx])
     emb_matrix = normalize(emb_matrix)
 
-    # Auto-detect number of speakers (2–6) using distance threshold
+    # Auto-detect number of speakers using distance threshold
     if n_speakers is None:
         n_speakers = min(len(valid_idx), 6)
         clustering = AgglomerativeClustering(
             n_clusters=None,
-            distance_threshold=0.65,
+            distance_threshold=0.85,
             metric="cosine",
             linkage="average",
         )
@@ -226,11 +226,15 @@ def cluster_embeddings(embeddings_with_words: list, n_speakers: int = None) -> l
     return merge_consecutive_speakers(word_speaker)
 
 
+import re
+
 def fallback_single_speaker(words: list[dict]) -> list[dict]:
     if not words:
         return []
+    text = " ".join(w["text"].strip() for w in words).strip()
+    text = re.sub(r'\s+([.,!?])', r'\1', text)
     return [{"speaker": "Speaker 1",
-             "text": "".join(w["text"] for w in words),
+             "text": text,
              "start": words[0]["start"],
              "end": words[-1]["end"]}]
 
@@ -241,16 +245,19 @@ def merge_consecutive_speakers(word_speaker: list[dict]) -> list[dict]:
         return []
     segments = []
     current = dict(word_speaker[0])
-    current["text"] = current["text"]
+    current["text"] = current["text"].strip()
 
     for w in word_speaker[1:]:
         if w["speaker"] == current["speaker"]:
-            current["text"] += w["text"]
+            current["text"] += " " + w["text"].strip()
             current["end"] = w["end"]
         else:
+            current["text"] = re.sub(r'\s+([.,!?])', r'\1', current["text"])
             segments.append(current)
             current = dict(w)
+            current["text"] = current["text"].strip()
 
+    current["text"] = re.sub(r'\s+([.,!?])', r'\1', current["text"])
     segments.append(current)
     return segments
 
@@ -295,7 +302,9 @@ async def diarize(
     # If audio is very short (< 3s), skip diarization
     duration = word_segments[-1]["end"] if word_segments else 0
     if duration < 3.0:
-        text = "".join(w["text"] for w in word_segments)
+        text = " ".join(w["text"].strip() for w in word_segments).strip()
+        import re
+        text = re.sub(r'\s+([.,!?])', r'\1', text)
         return {"segments": [{"speaker": "Speaker 1", "text": text,
                                "start": word_segments[0]["start"],
                                "end": word_segments[-1]["end"]}]}

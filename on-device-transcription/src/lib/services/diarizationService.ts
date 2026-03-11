@@ -1,4 +1,5 @@
-const DIARIZE_URL = 'http://localhost:8765/diarize';
+const DIARIZE_BASE_URL = import.meta.env.VITE_DIARIZE_URL || 'http://localhost:8765';
+const DIARIZE_URL = `${DIARIZE_BASE_URL}/diarize`;
 
 import type { DiarizedSegment } from '$lib/types';
 
@@ -32,7 +33,7 @@ export async function diarizeAudio(
 
 export async function isDiarizeServerAvailable(): Promise<boolean> {
     try {
-        const res = await fetch('http://localhost:8765/health', { signal: AbortSignal.timeout(2000) });
+        const res = await fetch(`${DIARIZE_BASE_URL}/health`, { signal: AbortSignal.timeout(2000) });
         return res.ok;
     } catch {
         return false;
