@@ -12,12 +12,11 @@
 		"pack": "electron-builder --dir",
 		"dev:electron": "electron --trace-warnings ./src/electron/index.js",
 		"build:electron": "electron-builder -m --config build.config.json",
-		"postinstall": "electron-builder install-app-deps",
+		"postinstall": "[ -z \"$VERCEL\" ] && electron-builder install-app-deps || true",
 		"build": "npm run build:svelte && npm run build:electron",
 		"vercel-build": "npm run build:svelte"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-static": "^3.0.1",
 		"@sveltejs/adapter-vercel": "^6.3.3",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
