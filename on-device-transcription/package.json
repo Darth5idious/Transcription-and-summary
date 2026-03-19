@@ -12,7 +12,7 @@
 		"pack": "electron-builder --dir",
 		"dev:electron": "electron --trace-warnings ./src/electron/index.js",
 		"build:electron": "electron-builder -m --config build.config.json",
-		"postinstall": "electron-builder install-app-deps",
+		"postinstall": "[ -z \"$VERCEL\" ] && electron-builder install-app-deps || true",
 		"build": "npm run build:svelte && npm run build:electron",
 		"vercel-build": "npm run build:svelte"
 	},
