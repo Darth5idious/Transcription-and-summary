@@ -26,6 +26,7 @@
 		loadSessions,
 		saveSession,
 	} from '$lib/stores/sessions';
+	import { currentUser } from '$lib/stores/auth';
 
 	// State
 	let isRecording = false;
@@ -71,6 +72,11 @@
 			}
 		}
 	});
+
+	// Reload sessions when user logs in or out
+	$: if ($currentUser !== undefined) {
+		loadSessions();
+	}
 
 	// React to active session changes (loading a saved session)
 	$: if ($activeSession && !isRecording) {
@@ -338,135 +344,131 @@
 		elapsedTime = 0;
 		audioLevel = 0;
 	}
+
+	// Expose handleNewSession for the layout/sidebar
+	import { setContext } from 'svelte';
+	setContext('app_actions', { handleNewSession });
 </script>
 
-<div class="flex h-full w-full">
-	<!-- Sidebar -->
-	<Sidebar onNewSession={handleNewSession} />
-
-	<!-- Main content -->
-	<div class="flex-1 flex flex-col p-6 space-y-4 overflow-hidden">
-		<!-- Top bar with settings -->
-		<div class="flex items-center justify-between shrink-0">
-			<div>
-				{#if isViewingSaved && $activeSession}
-					<h2 class="text-lg font-semibold text-gray-800 truncate max-w-lg">
-						{$activeSession.title}
-					</h2>
-				{:else if isRecording}
-					<h2 class="text-lg font-semibold text-gray-800">Recording...</h2>
-				{:else}
-					<h2 class="text-lg font-semibold text-gray-800">New Recording</h2>
-				{/if}
-			</div>
-			<div class="flex items-center space-x-2">
-				<!-- Language toggle button -->
-				<button
-					on:click={() => config.update((c) => ({ ...c, language: c.language === 'de' ? 'en' : 'de' }))}
-					disabled={isRecording}
-					title="Toggle language"
-					class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all
-						{$config.language === 'de'
-							? 'bg-black text-white border-black hover:bg-gray-800'
-							: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}
-						disabled:opacity-40 disabled:cursor-not-allowed"
-				>
-					<span>{$config.language === 'de' ? '🇩🇪' : '🇬🇧'}</span>
-					<span>{$config.language === 'de' ? 'DE' : 'EN'}</span>
-				</button>
-
-				<!-- Settings button -->
-				<button
-					on:click={() => settingsRef?.open()}
-					class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-					title="Settings"
-				>
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-					/>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-					/>
-				</svg>
-			</button>
-			</div>
-		</div>
-
-		<!-- Recording controls -->
-		{#if !isViewingSaved}
-			<div class="shrink-0">
-				<RecordingControls
-					{isRecording}
-					{isPaused}
-					{elapsedTime}
-					{audioLevel}
-					on:start={startRecording}
-					on:stop={stopRecording}
-					on:togglePause={() => (isPaused = !isPaused)}
-				/>
-			</div>
+<!-- Top bar with settings -->
+<div class="flex items-center justify-between shrink-0">
+	<div>
+		{#if isViewingSaved && $activeSession}
+			<h2 class="text-lg font-semibold text-gray-800 truncate max-w-lg">
+				{$activeSession.title}
+			</h2>
+		{:else if isRecording}
+			<h2 class="text-lg font-semibold text-gray-800">Recording...</h2>
+		{:else}
+			<h2 class="text-lg font-semibold text-gray-800">New Recording</h2>
 		{/if}
-
-		<!-- Transcript row (top) -->
-		<div class="flex space-x-4 min-h-0" style="flex: 1 1 0; min-height: 0;">
-			<!-- German original transcript (always shown) -->
-			<div class="flex-1 min-w-0">
-				<TranscriptPanel
-					{transcript}
-					{segments}
-					isLive={isRecording || isDiarizing}
-					label={$config.language === 'de' ? '🇩🇪 Deutsch' : undefined}
-					downloadFilename="{fileBase}_transcript.txt"
-				/>
-			</div>
-
-			<!-- English translation (German mode only) -->
-			{#if $config.language === 'de'}
-				<div class="flex-1 min-w-0">
-					<TranscriptPanel
-						transcript={translation}
-						segments={[]}
-						isLive={isTranslating}
-						label="🇬🇧 English"
-						downloadFilename="{fileBase}_translation.txt"
-					/>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Audio playback + MP3 download -->
-		{#if blobURL && showSoundWave}
-			<div class="shrink-0 flex items-center space-x-2">
-				<div class="flex-1 min-w-0">
-					<SoundWave {blobURL} />
-				</div>
-				<button
-					on:click={() => downloadMp3(accumulatedAudio, `${fileBase}.mp3`, blobURL)}
-					title="Download MP3"
-					class="shrink-0 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-gray-200
-						bg-white text-gray-500 hover:text-gray-700 hover:border-gray-300 text-xs font-medium transition-all"
-				>
-					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-							d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-					</svg>
-					<span>MP3</span>
-				</button>
-			</div>
-		{/if}
-
-		<!-- Summary (always at bottom) -->
-		<div class="shrink-0" style="height: 220px; min-height: 180px;">
-			<SummaryPanel {summary} isGenerating={isSummarizing} downloadFilename="{fileBase}_summary.md" />
-		</div>
 	</div>
+	<div class="flex items-center space-x-2">
+		<!-- Language toggle button -->
+		<button
+			on:click={() => config.update((c) => ({ ...c, language: c.language === 'de' ? 'en' : 'de' }))}
+			disabled={isRecording}
+			title="Toggle language"
+			class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all
+				{$config.language === 'de'
+					? 'bg-black text-white border-black hover:bg-gray-800'
+					: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}
+				disabled:opacity-40 disabled:cursor-not-allowed"
+		>
+			<span>{$config.language === 'de' ? '🇩🇪' : '🇬🇧'}</span>
+			<span>{$config.language === 'de' ? 'DE' : 'EN'}</span>
+		</button>
+
+		<!-- Settings button -->
+		<button
+			on:click={() => settingsRef?.open()}
+			class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+			title="Settings"
+		>
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+				/>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+				/>
+			</svg>
+		</button>
+	</div>
+</div>
+
+<!-- Recording controls -->
+{#if !isViewingSaved}
+	<div class="shrink-0">
+		<RecordingControls
+			{isRecording}
+			{isPaused}
+			{elapsedTime}
+			{audioLevel}
+			on:start={startRecording}
+			on:stop={stopRecording}
+			on:togglePause={() => (isPaused = !isPaused)}
+		/>
+	</div>
+{/if}
+
+<!-- Transcript row (top) -->
+<div class="flex space-x-4 min-h-0" style="flex: 1 1 0; min-height: 0;">
+	<!-- German original transcript (always shown) -->
+	<div class="flex-1 min-w-0">
+		<TranscriptPanel
+			{transcript}
+			{segments}
+			isLive={isRecording || isDiarizing}
+			label={$config.language === 'de' ? '🇩🇪 Deutsch' : undefined}
+			downloadFilename="{fileBase}_transcript.txt"
+		/>
+	</div>
+
+	<!-- English translation (German mode only) -->
+	{#if $config.language === 'de'}
+		<div class="flex-1 min-w-0">
+			<TranscriptPanel
+				transcript={translation}
+				segments={[]}
+				isLive={isTranslating}
+				label="🇬🇧 English"
+				downloadFilename="{fileBase}_translation.txt"
+			/>
+		</div>
+	{/if}
+</div>
+
+<!-- Audio playback + MP3 download -->
+{#if blobURL && showSoundWave}
+	<div class="shrink-0 flex items-center space-x-2">
+		<div class="flex-1 min-w-0">
+			<SoundWave {blobURL} />
+		</div>
+		<button
+			on:click={() => downloadMp3(accumulatedAudio, `${fileBase}.mp3`, blobURL)}
+			title="Download MP3"
+			class="shrink-0 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-gray-200
+				bg-white text-gray-500 hover:text-gray-700 hover:border-gray-300 text-xs font-medium transition-all"
+		>
+			<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+					d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+			</svg>
+			<span>MP3</span>
+		</button>
+	</div>
+{/if}
+
+<!-- Summary (always at bottom) -->
+<div class="shrink-0" style="height: 220px; min-height: 180px;">
+	<SummaryPanel {summary} isGenerating={isSummarizing} downloadFilename="{fileBase}_summary.md" />
 </div>
 
 <Settings bind:this={settingsRef} />

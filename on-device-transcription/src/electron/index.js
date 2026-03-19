@@ -37,8 +37,8 @@ ipcMain.handle('save-session', async (_, session) => {
 });
 
 ipcMain.handle('delete-session', async (_, sessionId) => {
-	await fs.unlink(path.join(sessionsDir, `${sessionId}.json`)).catch(() => {});
-	await fs.unlink(path.join(audioDir, `${sessionId}.wav`)).catch(() => {});
+	await fs.unlink(path.join(sessionsDir, `${sessionId}.json`)).catch(() => { });
+	await fs.unlink(path.join(audioDir, `${sessionId}.wav`)).catch(() => { });
 	return true;
 });
 
@@ -85,7 +85,14 @@ const createWindow = () => {
 		},
 	});
 
-	mainWindow.loadFile(path.join(__dirname, base, "index.html"));
+	if (isdev) {
+		mainWindow.loadURL("http://localhost:5173").catch(() => {
+			// Fallback to built files if dev server isn't running
+			mainWindow.loadFile(path.join(__dirname, base, "index.html"));
+		});
+	} else {
+		mainWindow.loadFile(path.join(__dirname, base, "index.html"));
+	}
 };
 
 app.whenReady().then(async () => {

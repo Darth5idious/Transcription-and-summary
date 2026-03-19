@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { config } from '$lib/stores/config';
+	import { currentUser, logout } from '$lib/stores/auth';
 
 	let apiKeyValue = '';
 	let languageValue = 'en';
 	let transcriptionModelValue = 'whisper-large-v3-turbo';
 	let summarizationModelValue = 'llama-3.3-70b-versatile';
 	let visible = false;
+
+	function triggerAuth(mode: 'login' | 'signup') {
+		visible = false;
+		// Dispatch custom event that layout listens to
+		window.dispatchEvent(new CustomEvent('open-auth', { detail: mode }));
+	}
 
 	export function open() {
 		apiKeyValue = $config.groqApiKey;
@@ -107,6 +114,24 @@
 						<option value="llama-3.1-8b-instant">Llama 3.1 8B (Faster)</option>
 						<option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
 					</select>
+				</div>
+
+				<div class="pt-4 border-t border-gray-100">
+					<label class="block text-sm font-medium text-gray-700 mb-2">Cloud Account</label>
+					<div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+						{#if $currentUser}
+							<div class="flex items-center justify-between">
+								<span class="text-sm text-gray-600 font-medium">Logged in as <b>{$currentUser.username}</b></span>
+								<button type="button" on:click={logout} class="text-xs text-red-500 hover:underline">Sign Out</button>
+							</div>
+						{:else}
+							<p class="text-xs text-gray-500 mb-2">Sign in to save your summaries to the Vercel database.</p>
+							<div class="flex space-x-2">
+								<button type="button" on:click={() => triggerAuth('signup')} class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md font-medium">Create Account</button>
+								<button type="button" on:click={() => triggerAuth('login')} class="text-xs bg-white text-gray-600 border border-gray-200 px-3 py-1.5 rounded-md font-medium">Sign In</button>
+							</div>
+						{/if}
+					</div>
 				</div>
 			</div>
 

@@ -13,3 +13,4 @@ build/
 
 pretrained_models/
 speechbrain/
+.vercel

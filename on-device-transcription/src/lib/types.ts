@@ -32,3 +32,20 @@ export interface AppConfig {
 	summarizationModel: string;
 	language: string;
 }
+
+export interface User {
+	id: number;
+	username: string;
+}
+
+export interface DbSummary {
+	id: number;
+	user_id: number;
+	title: string;
+	transcript: string | null;
+	summary: string | null;
+	translation: string | null;
+	duration: number;
+	language: string;
+	created_at: string;
+}
