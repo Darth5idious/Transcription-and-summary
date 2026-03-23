@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import { currentUser, checkSession, logout } from '$lib/stores/auth';
@@ -11,7 +11,7 @@
 	onMount(() => {
 		checkSession();
 
-		const authHandler = (e: CustomEvent) => {
+		const authHandler = (e: any) => {
 			if (authModalRef) authModalRef.open(e.detail);
 		};
 		window.addEventListener('open-auth', authHandler);

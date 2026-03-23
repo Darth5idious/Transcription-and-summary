@@ -7,14 +7,14 @@
 		"dev": "vite dev",
 		"build:svelte": "vite build",
 		"preview": "vite preview",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"pack": "electron-builder --dir",
 		"dev:electron": "electron --trace-warnings ./src/electron/index.js",
 		"build:electron": "electron-builder -m --config build.config.json",
 		"postinstall": "[ -z \"$VERCEL\" ] && electron-builder install-app-deps || true",
 		"build": "npm run build:svelte && npm run build:electron",
-		"vercel-build": "npm run build:svelte"
+		"vercel-build": "npx svelte-kit sync && npm run build:svelte"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.1",

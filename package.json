@@ -1,0 +1,9 @@
+{
+    "name": "transcription-summary-root",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "build": "cd on-device-transcription && npm install && npm run build:svelte",
+        "vercel-build": "cd on-device-transcription && npm install && npx svelte-kit sync && npm run build:svelte"
+    }
+}
