@@ -1,0 +1,23 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   on-device-transcription/src/routes/+layout.svelte
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	on-device-transcription/build.log
+	on-device-transcription/commit.log
+	on-device-transcription/git_log.log
+	on-device-transcription/git_push.log
+	on-device-transcription/git_status.log
+	on-device-transcription/other_diffs.log
+	on-device-transcription/package_diff.log
+	on-device-transcription/remotes.log
+	on-device-transcription/sidebar_diff.log
+	root_remotes.log
+	root_status.log
+
+no changes added to commit (use "git add" and/or "git commit -a")

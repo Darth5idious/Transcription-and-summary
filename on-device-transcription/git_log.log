@@ -1,0 +1,11 @@
+commit d402e9bb7a63d16ea58b7ac4f2af1ff0b55d8e70
+Author: Darth5idious <siddharth8102@gmail.com>
+Date:   Mon Mar 23 09:13:38 2026 +0100
+
+    Fix white screen (missing Sidebar import) and improve Electron/Web compatibility
+
+commit 6e17b163d999f3cda89656126eaaf0084826f148
+Author: Darth5idious <siddharth8102@gmail.com>
+Date:   Wed Mar 18 12:22:28 2026 +0100
+
+    Add user authentication and Vercel Postgres summary storage

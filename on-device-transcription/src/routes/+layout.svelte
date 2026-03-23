@@ -3,6 +3,7 @@
 	import { Toaster } from 'svelte-french-toast';
 	import { currentUser, checkSession, logout } from '$lib/stores/auth';
 	import AuthModal from '$lib/components/AuthModal.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
 	import '../app.css';
 
 	import { getContext } from 'svelte';

@@ -1,0 +1,147 @@
+diff --git a/src/lib/stores/auth.ts b/src/lib/stores/auth.ts
+index 9c7bec5..2aa39d9 100644
+--- a/src/lib/stores/auth.ts
++++ b/src/lib/stores/auth.ts
+@@ -5,12 +5,6 @@ export const currentUser = writable<User | null>(null);
+ export const authLoading = writable(true);
+ 
+ export async function checkSession(): Promise<void> {
+-    // Skip auth check in Electron mode
+-    if (typeof window !== 'undefined' && window.electronAPI) {
+-        authLoading.set(false);
+-        return;
+-    }
+-
+     try {
+         const res = await fetch('/api/auth/me');
+         const data = await res.json();
+diff --git a/src/lib/stores/sessions.ts b/src/lib/stores/sessions.ts
+index 6edf0a8..00ce3f1 100644
+--- a/src/lib/stores/sessions.ts
++++ b/src/lib/stores/sessions.ts
+@@ -45,37 +45,44 @@ function isElectron(): boolean {
+ }
+ 
+ export async function loadSessions() {
++	let localSessions: Session[] = [];
+ 	if (isElectron()) {
+-		const list = await window.electronAPI!.listSessions();
+-		sessions.set(list);
+-	} else {
+-		// Web mode: load from database if logged in
+-		const user = get(currentUser);
+-		if (!user) {
+-			sessions.set([]);
+-			return;
+-		}
+-		try {
+-			const res = await fetch('/api/summaries');
+-			if (res.ok) {
+-				const data = await res.json();
+-				// Convert database records to Session format
+-				const list: Session[] = (data.summaries || []).map((s: any) => ({
+-					id: `db_${s.id}`,
+-					title: s.title,
+-					createdAt: new Date(s.created_at).getTime(),
+-					duration: s.duration || 0,
+-					transcript: s.transcript || '',
+-					summary: s.summary || '',
+-					translation: s.translation || undefined,
+-					hasAudio: false,
+-					_dbId: s.id, // keep track of database ID
+-				}));
+-				sessions.set(list);
+-			}
+-		} catch (err) {
+-			console.error('Failed to load sessions from DB:', err);
++		localSessions = await window.electronAPI!.listSessions();
++	}
++
++	const user = get(currentUser);
++	if (!user) {
++		sessions.set(localSessions);
++		return;
++	}
++
++	try {
++		const res = await fetch('/api/summaries');
++		if (res.ok) {
++			const data = await res.json();
++			// Convert database records to Session format
++			const dbSessions: Session[] = (data.summaries || []).map((s: any) => ({
++				id: `db_${s.id}`,
++				title: s.title,
++				createdAt: new Date(s.created_at).getTime(),
++				duration: s.duration || 0,
++				transcript: s.transcript || '',
++				summary: s.summary || '',
++				translation: s.translation || undefined,
++				hasAudio: false,
++				_dbId: s.id, // keep track of database ID
++			}));
++
++			// Merge local and DB sessions, avoiding duplicates if possible (by title/createdAt)
++			// For simplicity, we'll just show both, but DB sessions have a 'db_' prefix
++			const merged = [...dbSessions, ...localSessions].sort((a, b) => b.createdAt - a.createdAt);
++			sessions.set(merged);
++		} else {
++			sessions.set(localSessions);
+ 		}
++	} catch (err) {
++		console.error('Failed to load sessions from DB:', err);
++		sessions.set(localSessions);
+ 	}
+ }
+ 
+@@ -84,9 +91,9 @@ export async function saveSession(session: Session) {
+ 		await window.electronAPI!.saveSession(session);
+ 	}
+ 
+-	// Also save to database if logged in (works in both Electron and web)
++	// Also save to database if logged in
+ 	const user = get(currentUser);
+-	if (user && !isElectron()) {
++	if (user) {
+ 		try {
+ 			await fetch('/api/summaries', {
+ 				method: 'POST',
+@@ -117,17 +124,18 @@ export async function saveSession(session: Session) {
+ export async function deleteSession(id: string) {
+ 	if (isElectron()) {
+ 		await window.electronAPI!.deleteSession(id);
+-	} else {
+-		// Web mode: delete from database
+-		const sessionList = get(sessions);
+-		const session = sessionList.find((s) => s.id === id);
+-		const dbId = (session as any)?._dbId;
+-		if (dbId) {
+-			try {
+-				await fetch(`/api/summaries/${dbId}`, { method: 'DELETE' });
+-			} catch (err) {
+-				console.error('Failed to delete session from DB:', err);
+-			}
++	}
++
++	// Also delete from database if it's a DB session or we have a DB ID
++	const sessionList = get(sessions);
++	const session = sessionList.find((s) => s.id === id);
++	const dbId = (session as any)?._dbId || (id.startsWith('db_') ? id.slice(3) : null);
++
++	if (dbId) {
++		try {
++			await fetch(`/api/summaries/${dbId}`, { method: 'DELETE' });
++		} catch (err) {
++			console.error('Failed to delete session from DB:', err);
+ 		}
+ 	}
+ 
+diff --git a/src/routes/+layout.ts b/src/routes/+layout.ts
+index 647a889..89da957 100644
+--- a/src/routes/+layout.ts
++++ b/src/routes/+layout.ts
+@@ -1,2 +1,2 @@
+-export const ssr = true;
+-export const prerender = false;
+\ No newline at end of file
++export const ssr = false;
++export const prerender = true;
