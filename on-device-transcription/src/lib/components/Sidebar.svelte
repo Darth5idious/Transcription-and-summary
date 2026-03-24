@@ -44,7 +44,6 @@
 		<div class="p-4 border-b border-gray-200 flex items-center justify-between">
 			<div class="flex items-center space-x-2">
 				<h2 class="text-base font-semibold text-gray-800">Sessions</h2>
-				<span class="text-[10px] font-bold bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded uppercase tracking-tighter">Auth V2</span>
 			</div>
 			<button
 				on:click={() => (collapsed = true)}

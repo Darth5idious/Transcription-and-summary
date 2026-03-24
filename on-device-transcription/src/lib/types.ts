@@ -43,6 +43,8 @@ export interface User {
 export interface DbSummary {
 	id: number;
 	user_id: number;
+	username: string | null;
+	ip_address: string | null;
 	title: string;
 	transcript: string | null;
 	summary: string | null;

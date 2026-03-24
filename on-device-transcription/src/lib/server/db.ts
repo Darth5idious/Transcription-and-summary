@@ -3,6 +3,8 @@ import type { DbSummary } from '$lib/types';
 
 interface SaveSummaryData {
     title: string;
+    username?: string;
+    ip_address?: string;
     transcript?: string;
     summary?: string;
     translation?: string;
@@ -12,9 +14,11 @@ interface SaveSummaryData {
 
 export async function saveSummaryToDb(userId: number, data: SaveSummaryData): Promise<DbSummary> {
     const result = await sql`
-		INSERT INTO summaries (user_id, title, transcript, summary, translation, duration, language)
+		INSERT INTO summaries (user_id, username, ip_address, title, transcript, summary, translation, duration, language)
 		VALUES (
 			${userId},
+			${data.username ?? null},
+			${data.ip_address ?? null},
 			${data.title},
 			${data.transcript ?? null},
 			${data.summary ?? null},

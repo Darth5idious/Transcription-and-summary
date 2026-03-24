@@ -27,7 +27,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
     }
 };
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async (event) => {
+    const { request, cookies, getClientAddress } = event;
     const user = getUser(cookies);
     if (!user) {
         return json({ error: 'Not authenticated' }, { status: 401 });
@@ -39,8 +40,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     }
 
     try {
+        const ip = getClientAddress();
         const saved = await saveSummaryToDb(user.id, {
             title: data.title,
+            username: user.username,
+            ip_address: ip,
             transcript: data.transcript,
             summary: data.summary,
             translation: data.translation,

@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS summaries (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    username TEXT,
+    ip_address TEXT,
     title TEXT NOT NULL,
     transcript TEXT,
     summary TEXT,
