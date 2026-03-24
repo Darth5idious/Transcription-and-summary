@@ -36,6 +36,8 @@ export interface AppConfig {
 export interface User {
 	id: number;
 	username: string;
+	email?: string;
+	google_id?: string;
 }
 
 export interface DbSummary {
