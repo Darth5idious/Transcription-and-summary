@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 6e17b163d999f3cda89656126eaaf0084826f148 Darth5idious <siddharth8102@gmail.com> 1773832948 +0100	commit (initial): Add user authentication and Vercel Postgres summary storage
+6e17b163d999f3cda89656126eaaf0084826f148 d402e9bb7a63d16ea58b7ac4f2af1ff0b55d8e70 Darth5idious <siddharth8102@gmail.com> 1774253618 +0100	commit: Fix white screen (missing Sidebar import) and improve Electron/Web compatibility
+d402e9bb7a63d16ea58b7ac4f2af1ff0b55d8e70 ad8d35d27ff62d5f1731a09b78fadb033ebfa5b0 Darth5idious <siddharth8102@gmail.com> 1774342255 +0100	commit: Save summary metadata (username, ip, time) to Neon database
+ad8d35d27ff62d5f1731a09b78fadb033ebfa5b0 dd348cfa27b93c979be2e722a731dddb4583de4d Darth5idious <siddharth8102@gmail.com> 1774515256 +0100	commit: Add init-db endpoint, update schema with google_id/email columns, add Google OAuth routes
