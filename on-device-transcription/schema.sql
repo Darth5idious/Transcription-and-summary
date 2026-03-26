@@ -1,10 +1,12 @@
 -- Use this script in your Vercel Postgres / Neon console to initialize the database.
 
--- Users table
+-- Users table (passwords are bcrypt-hashed via password_hash)
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    google_id TEXT UNIQUE,
+    email TEXT UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
